@@ -1,6 +1,7 @@
 #ifndef NUKAC_PARSER_HPP
 #define NUKAC_PARSER_HPP
 
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -84,11 +85,12 @@ namespace nukac::parser {
 
     class Prototype {
       public:
-        Prototype(const std::string &name, std::vector<std::string> args);
+        Prototype(const std::string &name, ast::TypeExpression &return_type, std::map<std::unique_ptr<ast::VariableExpression>, ast::TypeExpression &> args);
         const std::string &getName();
       private:
         std::string name;
-        std::vector<std::string> args;
+        ast::TypeExpression &return_type;
+        std::map<std::unique_ptr<ast::VariableExpression>, ast::TypeExpression &> args;
     };
     
     class Function {
@@ -98,7 +100,13 @@ namespace nukac::parser {
         std::unique_ptr<Prototype> proto;
         std::unique_ptr<Expression> body;
     };
-  } // namespace ast 
-} // namespace nukac::parser
+
+    using ExpressionsAndFunctions = std::variant <
+        Expression,
+        Prototype,
+        Function
+      >;
+  } // ast 
+} // nukac::parser
 
 #endif
