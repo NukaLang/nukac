@@ -12,13 +12,13 @@ namespace nukac::parser {
   class ParserException {
     public:
       ParserException(std::string what, std::string faulty_expression);
-      ParserException(std::string what, nukac::lexer::LiteralWithPosition literal);
+      ParserException(std::string what, nukac::lexer::Literal literal);
       const char *what();
     private:
       std::string what_did_i_do;
   };
 
-  void parser();
+  void parser(lexer::Lexer &lexer);
   
   namespace comptime_macros {
     void println();
@@ -65,6 +65,14 @@ namespace nukac::parser {
       private:
         std::string name;
         std::unique_ptr<Expression> of_other_type;
+    };
+
+    class TypedVariableExpression: Expression {
+      public:
+        TypedVariableExpression(const std::string &name, TypeExpression &of_type);
+      private:
+        std::string name;
+        TypeExpression of_type;
     };
 
     class StructExpression: Expression {
