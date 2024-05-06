@@ -1,6 +1,7 @@
 #ifndef NUKAC_LEXER_HPP
 #define NUKAC_LEXER_HPP
 
+#include <functional>
 #include <sstream>
 #include <string>
 #include <variant>
@@ -8,85 +9,85 @@
 
 #include "helper.hpp"
 
-namespace nukac {
-  namespace lexer {
-    class LexerException {
-      public:
-        LexerException(std::string what);
-        LexerException(std::string what, usize character, usize line);
-        const char *what();
-      private:
-        std::string what_did_i_do;
-    }; // LexerException
-    
-    enum class Token {
-      exclamation,
-      question,
-      pipe,
-      ampersand,
-      dollar,
-      percent,
-      slash,
-      star,
-      plus,
-      dash,
-      equals,
-      backslash,
-      dot,
-      comma,
-      colon,
-      lparen,
-      rparen,
-      lsqbrace,
-      rsqbrace,
-      lcrbrace,
-      rcrbrace,
-      dquote,
-      squote,
-      left_inequality,
-      right_inequality,
+namespace nukac::lexer {
+  class LexerException {
+    public:
+      LexerException(std::string what);
+      LexerException(std::string what, usize character, usize line);
+      const char *what();
+    private:
+      std::string what_did_i_do;
+  }; // LexerException
+  
+  enum class Token {
+    exclamation,
+    question,
+    pipe,
+    ampersand,
+    dollar,
+    percent,
+    slash,
+    star,
+    plus,
+    dash,
+    equals,
+    backslash,
+    dot,
+    comma,
+    colon,
+    lparen,
+    rparen,
+    lsqbrace,
+    rsqbrace,
+    lcrbrace,
+    rcrbrace,
+    dquote,
+    squote,
+    left_inequality,
+    right_inequality,
 
-      arrow,
-    }; // Token
+    arrow,
+  }; // Token
 
-    using Literal = std::variant <
-      std::string,
-      size,
-      Token
-    >;
+  using LiteralVariant = std::variant <
+    std::string,
+    Token
+  >;
 
-    struct LiteralWithPosition {
-      usize character;
-      usize line;
-      Literal literal;
-    };
+  struct Literal {
+    usize character;
+    usize line;
+    LiteralVariant literal_variant;
+  };
 
-    std::ostream &operator<<(std::ostream &output, LiteralWithPosition &literal);
+  std::ostream &operator<<(std::ostream &output, Literal &literal);
+  bool operator==(const std::string &s, const LiteralVariant &l) noexcept;
+  bool operator==(const Token &t, const LiteralVariant &l) noexcept;
 
-    class Lexer {
-      public:
-        Lexer(std::istream &is);
+  class Lexer {
+    public:
+      Lexer(std::istream &is);
 
-        LiteralWithPosition next();
-        bool next(Literal w);
-        std::vector <LiteralWithPosition> next(usize n);
+      Literal next();
+      bool next(LiteralVariant w);
+      std::vector <Literal> next(usize n);
 
-        LiteralWithPosition swallow();
-        std::vector <LiteralWithPosition> swallow(usize n);
-        bool swallow(Literal w);
+      Literal swallow();
+      std::vector <Literal> swallow(usize n);
+      bool swallow(LiteralVariant w);
 
-        void swallowZ();
+      void swallowZ();
 
-      private:
-        std::vector <LiteralWithPosition> literals;
-        std::istream &is;
-        
-        usize token_at;
-        usize line_at;
+    private:
+      std::vector <Literal> literals;
+      std::istream &is;
+      
+      usize token_at;
+      usize line_at;
 
-        usize literals_vector_at;
-    }; // Lexer
-  } // lexer
-} // nukac 
+      usize literals_vector_at;
+  }; // Lexer
+
+} // nukac::lexer 
 
 #endif // NUKAC_LEXER_HPP
