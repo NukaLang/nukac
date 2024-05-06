@@ -1,29 +1,16 @@
 #ifndef NUKAC_PARSER_HPP
 #define NUKAC_PARSER_HPP
 
+#include <any>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
+#include <functional>
 
 #include "lexer.hpp"
 
 namespace nukac::parser {
-  class ParserException {
-    public:
-      ParserException(std::string what, std::string faulty_expression);
-      ParserException(std::string what, nukac::lexer::Literal literal);
-      const char *what();
-    private:
-      std::string what_did_i_do;
-  };
-
-  void parser(lexer::Lexer &lexer);
-  
-  namespace comptime_macros {
-    void println();
-  }
-
   namespace ast {
     class Expression {
       public:
@@ -103,10 +90,10 @@ namespace nukac::parser {
     
     class Function {
       public:
-        Function(std::unique_ptr<Prototype> proto, std::unique_ptr<Expression> body);
+        Function(std::unique_ptr<Prototype> proto, std::unique_ptr<std::vector<Expression>> body);
       private:
         std::unique_ptr<Prototype> proto;
-        std::unique_ptr<Expression> body;
+        std::unique_ptr<std::vector<Expression>> body;
     };
 
     using ExpressionsAndFunctions = std::variant <
@@ -115,6 +102,43 @@ namespace nukac::parser {
         Function
       >;
   } // ast 
+
+
+  class ParserException {
+    public:
+      ParserException(std::string what, std::string faulty_expression);
+      ParserException(std::string what, nukac::lexer::Literal literal);
+      const char *what();
+    private:
+      std::string what_did_i_do;
+  };
+
+  class Parser {
+    public:
+      // optional macro
+      // PARSER_WHILE_CONDITIONAL
+      Parser(lexer::Lexer &lexer);
+      Parser(lexer::Lexer &lexer, std::vector<ast::Expression> expressions, 
+          std::vector<ast::Prototype> prototypes, 
+          std::vector<ast::Function> functions, 
+          std::map<std::string, ast::TypeExpression &> parent_types);
+
+      std::vector<ast::Expression> getExpressions();
+      std::vector<ast::Prototype> getPrototypes();
+      std::vector<ast::Function> getFunctions();
+
+    private:
+      lexer::Lexer &lexer;
+      std::vector<ast::Expression> expressions;
+      std::vector<ast::Prototype> prototypes;
+      std::vector<ast::Function> functions;
+
+      std::map<std::string, ast::TypeExpression &> scope_types;
+
+      inline void parserInternal();
+      inline void parserFunction();
+  };
+
 } // nukac::parser
 
 #endif
