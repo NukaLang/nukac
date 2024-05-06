@@ -158,13 +158,13 @@ namespace nukac::lexer {
 
     return ls;
   }
-
+  
   Literal Lexer::swallow(){
     const Literal l = next();
     literals_vector_at++;
     return l;
   }
-
+  
   bool Lexer::swallow(LiteralVariant w){
     const bool l = next(w);
     literals_vector_at++;
@@ -179,6 +179,11 @@ namespace nukac::lexer {
 
   void Lexer::swallowZ() {
     literals_vector_at++;
+  }
+
+  bool Lexer::isEoC() {
+    if(literals_vector_at == literals.size()) return true;
+    else return false;
   }
 
   std::ostream &operator<<(std::ostream &output, Literal &literal) {

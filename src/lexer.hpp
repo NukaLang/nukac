@@ -75,7 +75,7 @@ namespace nukac::lexer {
       Literal swallow();
       std::vector <Literal> swallow(usize n);
       bool swallow(LiteralVariant w);
-
+      bool isEoC();
       void swallowZ();
 
     private:
