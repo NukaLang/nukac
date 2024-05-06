@@ -19,17 +19,15 @@ using i32 = int32_t;
 using i64 = int64_t;
 using size = ssize_t;
 
-namespace nukac {
-  namespace helper {
-    void exceptionHandler(std::string msg);
+namespace nukac::helper {
+  void exceptionHandler(std::string msg);
 
-    using Value = std::variant <
-      std::string,
-      usize,
-      size,
-      long double
-    >;
-  }
-}
-
-#endif
+  using Value = std::variant <
+    std::string,
+    usize,
+    size,
+    long double
+  >;
+} // nukac::helper
+ 
+#endif // NUKAC_HELPER_HPP
