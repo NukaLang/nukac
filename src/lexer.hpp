@@ -45,38 +45,40 @@ namespace nukac::lexer {
     squote,
     left_inequality,
     right_inequality,
+    semicolon,
 
     arrow,
+
+    string,
+    quoted,
   }; // Token
 
-  using LiteralVariant = std::variant <
-    std::string,
-    Token
-  >;
-
   struct Literal {
-    usize character;
-    usize line;
-    LiteralVariant literal_variant;
+    usize       where_character;
+    usize       where_line;
+    Token       literal_token;
+    std::string literal_string;
+
+    const bool isString() noexcept;
+    const bool isQuoted() noexcept;
   };
 
   std::ostream &operator<<(std::ostream &output, Literal &literal);
-  bool operator==(const std::string &s, const LiteralVariant &l) noexcept;
-  bool operator==(const Token &t, const LiteralVariant &l) noexcept;
 
   class Lexer {
     public:
       Lexer(std::istream &is);
 
       Literal next();
-      bool next(LiteralVariant w);
-      std::vector <Literal> next(usize n);
+      bool next(Token w);
+      bool next(std::string w);
 
       Literal swallow();
-      std::vector <Literal> swallow(usize n);
-      bool swallow(LiteralVariant w);
-      bool isEoC();
+      bool swallow(Token w);
+      bool swallow(std::string w);
       void swallowZ();
+
+      bool isEoC();
 
     private:
       std::vector <Literal> literals;

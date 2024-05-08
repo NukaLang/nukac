@@ -17,20 +17,18 @@ namespace nukac::lexer {
   }
 
 #define LEXER_PUSH_BACK() \
-    if(after_star) continue;  \
-    if(string_literal) { \
-      reconstructed_string_literal.push_back(c); continue; \
-    } \
+    if(after_star) continue; \
     if(!reconstructed_string_literal.empty()){ \
-      literals.push_back({.character = token_at, .line = line_at, .literal_variant = reconstructed_string_literal}); \
+      literals.push_back({.where_character = token_at, .where_line = line_at, .literal_token = Token::string, .literal_string = reconstructed_string_literal}); \
       literals.clear(); \
     } \
-    if(after_slash) { literals.push_back({ .character = token_at - 1, .line = line_at, .literal_variant = Token::slash }); after_slash = false; } \
-    if(after_dash) { literals.push_back({ .character = token_at - 1, .line = line_at, .literal_variant = Token::dash }); after_dash = false; } \
+    if(after_slash) { literals.push_back({ .where_character = token_at - 1, .where_line = line_at, .literal_token = Token::slash }); after_slash = false; } \
+    if(after_dash) { literals.push_back({ .where_character = token_at - 1, .where_line = line_at, .literal_token = Token::dash }); after_dash = false; } \
+    if(after_backslash) { after_backslash = false; } \
 
 #define LEXER_SWITCH(token) \
     LEXER_PUSH_BACK(); \
-    literals.push_back({ .character = token_at, .line = line_at, .literal_variant = token }); \
+    literals.push_back({ .where_character = token_at, .where_line = line_at, .literal_token = token }); \
     continue; 
 
   Lexer::Lexer(std::istream &is): is(is) {
@@ -44,7 +42,8 @@ namespace nukac::lexer {
     while(std::getline(is, line)) {
       for(char c: line) {
         bool after_star = false;
-        bool after_slash = false; 
+        bool after_slash = false;
+        bool after_backslash = false;
         bool after_dash = false;
         bool string_literal = false;
         token_at++;
@@ -89,7 +88,7 @@ namespace nukac::lexer {
           case '+': LEXER_SWITCH(Token::plus);
           case '-': after_dash = true; continue;
           case '=': LEXER_SWITCH(Token::equals);
-          case '\\': LEXER_SWITCH(Token::backslash);
+          case '\\': after_backslash = true; continue;
           case '.': LEXER_SWITCH(Token::dot); 
           case ',': LEXER_SWITCH(Token::comma); 
           case ':': LEXER_SWITCH(Token::comma)
@@ -101,12 +100,26 @@ namespace nukac::lexer {
           case '}': LEXER_SWITCH(Token::rcrbrace); 
           case '"': LEXER_PUSH_BACK();
                     if(!string_literal) string_literal = true;
-                    else if(string_literal) string_literal = false;
-                     
+                    else if(string_literal && !after_slash) { 
+                      string_literal = false;
+                      literals.push_back({
+                          .where_character = token_at,
+                          .where_line = line_at,
+                          .literal_token = Token::quoted,
+                          .literal_string = reconstructed_string_literal
+                      });
+                    }
+                    else if(string_literal && after_slash) {
+                      after_slash = false;
+                      string_literal = false;
+                      reconstructed_string_literal.push_back(c);
+                    }
+                    continue;
           case '\'':  LEXER_SWITCH(Token::backslash); 
           case '<': LEXER_SWITCH(Token::left_inequality); 
-          case ' ': case '\t': case ';':
+          case ' ': case '\t':
                     token_at++; continue;
+          case ';': LEXER_SWITCH(Token::semicolon);
           case '\n': line_at++; token_at = 0; continue;
           
           case 'a': case 'A':
@@ -146,37 +159,33 @@ namespace nukac::lexer {
     return literals[literals_vector_at + 1];  
   }
 
-  bool Lexer::next(LiteralVariant w){
-    return (w == literals[literals_vector_at + 1].literal_variant);
-  }
-
-  std::vector <Literal> Lexer::next(usize n) {
-    std::vector <Literal> ls;
-    for(usize m = 0; m < n; m++) {
-      ls.push_back(literals[literals_vector_at + m]);
-    }
-
-    return ls;
+  bool Lexer::next(Token w){
+    return (w == literals[literals_vector_at + 1].literal_token);
   }
   
+  bool Lexer::next(std::string w){
+    return (literals[literals_vector_at + 1].isString() && w == literals[literals_vector_at + 1].literal_string);
+  }
+    
   Literal Lexer::swallow(){
     const Literal l = next();
     literals_vector_at++;
     return l;
   }
   
-  bool Lexer::swallow(LiteralVariant w){
+  bool Lexer::swallow(Token w){
     const bool l = next(w);
     literals_vector_at++;
     return l;
   }
+  
+  bool Lexer::swallow(std::string w) {
+    const bool l = next(w);
+    literals_vector_at++;
+    return l;
 
-  std::vector <Literal> Lexer::swallow(usize n){
-    const std::vector <Literal> ls = next(n);
-    literals_vector_at += n;
-    return ls;
   }
-
+  
   void Lexer::swallowZ() {
     literals_vector_at++;
   }
@@ -186,26 +195,20 @@ namespace nukac::lexer {
     else return false;
   }
 
-  std::ostream &operator<<(std::ostream &output, Literal &literal) {
-    output << std::format("{}:{}: {}", literal.character, literal.line, std::get<std::string>(literal.literal_variant));
-    return output;
-  }
 
-  bool operator==(const std::string &s, const LiteralVariant &l) noexcept {
-    try {
-      const std::string &sr = std::get<std::string>(l);
-      return s == sr;
-    } catch(...) {
-      return false;
-    }
+  bool operator==(const std::string &s, Literal &l) noexcept {
+    return (l.isString() && s == l.literal_string); 
   }
   
-  bool operator==(const Token &t, const LiteralVariant &l) noexcept {
-    try {
-      const Token &tr = std::get<Token>(l);
-      return t == tr;
-    } catch(...) {
-      return false;
-    }
+  bool operator==(const Token &t, Literal &l) noexcept {
+    return t == l.literal_token;  
+  }
+
+  const bool Literal::isString() noexcept {
+    return literal_token == Token::string; 
+  }
+
+  const bool Literal::isQuoted() noexcept {
+    return literal_token == Token::quoted;
   }
 } // nukac::lexer

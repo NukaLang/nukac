@@ -5,6 +5,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <functional>
 
@@ -17,90 +18,97 @@ namespace nukac::parser {
         virtual ~Expression() = default;
     };
     
-    class NumberExpression: Expression {
+    class NumberExpression: public Expression {
       public:
         NumberExpression(double val);
       private:
         double val;
     };
 
-    class VariableExpression: Expression {
+    class TypeExpression: public Expression {
       public:
-        VariableExpression(std::string &name);
+        TypeExpression(const std::string &name, Expression &of_other_type);
+
+        std::string getName();
+        Expression &referencingType();
       private:
         std::string name;
+        Expression &of_other_type;
+    };
+
+    class VariableExpression: public Expression {
+      public:
+        VariableExpression(std::string &name, ast::TypeExpression &type);
+        VariableExpression(std::string &name, 
+            ast::TypeExpression &type, 
+            std::vector<ast::Expression> &stored);
+
+        void store(std::vector<Expression> stored);
+        std::vector<Expression> getStored();
+
+      private:
+        std::string name;
+        TypeExpression &type;
+        std::vector<Expression> stored;
     };
     
-    class BinaryExpression: Expression {
+    class BinaryExpression: public Expression {
       public:
         enum class Operand {
           oand,
           oor,
           oxor,
           onot,
+          oplus,
+          ominus,
+          otimes,
+          odivide,
+          omodulo,
+
         };
         BinaryExpression(Operand operand, 
-            std::unique_ptr<Expression> lhs, std::unique_ptr<Expression> rhs);
+            Expression &lhs, Expression &rhs);
       private:
         Operand operand;
-        std::unique_ptr<Expression> lhs, rhs;
+        Expression & lhs, rhs;
     };
 
-    class TypeExpression: Expression {
+    class StructExpression: public Expression {
       public:
-        TypeExpression(const std::string &name, std::unique_ptr<Expression> of_other_type);
+        StructExpression(const std::string &name, std::vector<Expression> contents);
       private:
         std::string name;
-        std::unique_ptr<Expression> of_other_type;
+        std::vector<Expression> contents;
     };
 
-    class TypedVariableExpression: Expression {
+    class CallExpression: public Expression {
       public:
-        TypedVariableExpression(const std::string &name, TypeExpression &of_type);
-      private:
-        std::string name;
-        TypeExpression of_type;
-    };
-
-    class StructExpression: Expression {
-      public:
-        StructExpression(const std::string &name, std::vector<std::unique_ptr<Expression>> contents);
-      private:
-        std::string name;
-        std::vector<std::unique_ptr<Expression>> contents;
-    };
-
-    class CallExpression: Expression {
-      public:
-        CallExpression(const std::string &calle, std::vector<std::unique_ptr<Expression>> args);
+        CallExpression(const std::string &callee, std::vector<Expression> args);
       private:
         std::string callee;
-        std::vector<std::unique_ptr<Expression>> args;
+        std::vector<Expression> args;
     };
 
     class Prototype {
       public:
-        Prototype(const std::string &name, ast::TypeExpression &return_type, std::map<std::unique_ptr<ast::VariableExpression>, ast::TypeExpression &> args);
+        Prototype(const std::string &name, ast::TypeExpression &return_type, 
+            std::vector<ast::VariableExpression> args);
         const std::string &getName();
+        const std::vector<ast::VariableExpression> getVariables;
       private:
         std::string name;
         ast::TypeExpression &return_type;
-        std::map<std::unique_ptr<ast::VariableExpression>, ast::TypeExpression &> args;
+        std::vector<ast::VariableExpression> args;
     };
     
     class Function {
       public:
-        Function(std::unique_ptr<Prototype> proto, std::unique_ptr<std::vector<Expression>> body);
+        Function(Prototype &proto, std::vector<Expression> body);
       private:
-        std::unique_ptr<Prototype> proto;
-        std::unique_ptr<std::vector<Expression>> body;
+        Prototype &proto;
+        std::vector<Expression> body;
     };
 
-    using ExpressionsAndFunctions = std::variant <
-        Expression,
-        Prototype,
-        Function
-      >;
   } // ast 
 
 
@@ -113,30 +121,48 @@ namespace nukac::parser {
       std::string what_did_i_do;
   };
 
+  enum class Scope {
+    function,
+    structure, // even a file is considered a structure,
+               // ziglike.
+    variable,
+  };
+
   class Parser {
     public:
       // optional macro
       // PARSER_WHILE_CONDITIONAL
       Parser(lexer::Lexer &lexer);
-      Parser(lexer::Lexer &lexer, std::vector<ast::Expression> expressions, 
+      Parser(lexer::Lexer &lexer,
+          std::unordered_map<std::string, ast::VariableExpression> variables,
+          std::vector<ast::Expression> expressions, 
           std::vector<ast::Prototype> prototypes, 
           std::vector<ast::Function> functions, 
-          std::map<std::string, ast::TypeExpression &> parent_types);
+          std::unordered_map<std::string, ast::TypeExpression> parent_types,
+          Scope scope);
 
       std::vector<ast::Expression> getExpressions();
       std::vector<ast::Prototype> getPrototypes();
       std::vector<ast::Function> getFunctions();
+      const Scope getScope();
 
     private:
       lexer::Lexer &lexer;
+      std::unordered_map<std::string, ast::VariableExpression> variables;
       std::vector<ast::Expression> expressions;
       std::vector<ast::Prototype> prototypes;
       std::vector<ast::Function> functions;
 
-      std::map<std::string, ast::TypeExpression &> scope_types;
+      std::unordered_map<std::string, ast::TypeExpression> scope_types;
 
       inline void parserInternal();
-      inline void parserFunction();
+      inline void parserPFunction();
+      inline void parserPStructure();
+      inline void parserPReturn();
+      inline void parserPVariable(std::string name);
+      inline void parserPVariableAssign(std::string name);
+
+      Scope scope;
   };
 
 } // nukac::parser
